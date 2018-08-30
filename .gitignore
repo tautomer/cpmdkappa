@@ -1,0 +1,6 @@
+*
+!*.F90
+!compile.sh
+!makefile
+!README.md
+!.gitignore
