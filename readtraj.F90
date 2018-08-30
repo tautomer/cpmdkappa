@@ -65,19 +65,18 @@ subroutine proc_traj(kappa)
 #endif
         call read_init(i, v0, flag, tid, getr1r2, derivative)
         if (flag /= 0) then
-            write(*, "(a,i0)") "Error in initial velocities or poitions file &
-            & from trajectory ", i
             cycle
         end if
         if(v0 >= 0) then
             h(1) = 1d0
             vsum = vsum + v0
+        else
+            h(1) = 0d0
         end if
         vsum_old = vsum
         call read_traj(i, h, flag, tid, getr1r2, colvar)
         if (flag /= 0) then
             vsum = vsum_old
-            write(*, "(a,i0)") "Error in TRAJECTORY file from trajectory ", i
             cycle
         end if
         kappa = kappa + v0 * h      
@@ -113,6 +112,7 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
     character(len=*), parameter :: cvp = "/cv_pos", cvv = "/cv_vel" 
     character(len=25) :: cvpos, cvvel
 
+    flag = 0
     write(cvpos, "(a,i0,a)") "./", idx, cvp
     write(cvvel, "(a,i0,a)") "./", idx, cvv
 #if defined(_OPENMP)
@@ -122,9 +122,12 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
     pu = 21
     vu = 22
 #endif
-    open(unit=pu, file=cvpos, iostat=ioerr)
-    open(unit=vu, file=cvvel, iostat=ioerr2)
+    ! TODO: put reading part into a universial subroutine
+    open(unit=pu, file=cvpos, action='read', iostat=ioerr)
+    open(unit=vu, file=cvvel, action='read', iostat=ioerr2)
     if (ioerr /= 0 .or. ioerr2 /= 0) then
+        write(*, "(a,i0)") "Cannot find initial velocities or poitions file &
+        &from trajectory ", idx
         flag = 1
         return
     end if
@@ -134,6 +137,8 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
             read(vu, *, iostat=ioerr2) pv(i, :, j)
             if (ioerr /= 0 .or. ioerr2 /= 0) then
                 flag = 1
+                write(*, "(a,i0)") "Error in initial velocities or poitions &
+                &file from trajectory ", i
                 close(pu)
                 close(vu)
                 return
@@ -143,8 +148,8 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
     close(pu)
     close(vu)
     
-    r = sum(pr, 3)
-    v = sum(pv, 3)
+    r = sum(pr, 3) * invnb
+    v = sum(pv, 3) * invnb
     call getr1r2(r, r1, r2)
     call derivative(r1, r2, dr)
     v0 = 0
@@ -170,7 +175,7 @@ subroutine read_traj(idx, h, flag, tid, getr1r2, colvar)
     external :: getr1r2, colvar
     integer :: i, j, k, tmp, tu, ou, ioerr
     real*8 :: pr(natom, 3, nb), r(3, 3), r1(3), r2(3), f
-    character(len=*), parameter :: traj = "/TRJECTORY"
+    character(len=*), parameter :: traj = "/TRAJECTORY"
     character(len=25) :: ftraj, fcv
 
     flag = 0
@@ -183,31 +188,44 @@ subroutine read_traj(idx, h, flag, tid, getr1r2, colvar)
     tu = 23
     ou = 24
 #endif
-    open(unit=tu, file=ftraj, iostat=ioerr)
+    open(unit=tu, file=ftraj, action='read', iostat=ioerr)
     if (ioerr /= 0) then
         flag = 1
+        write(*, "(a,i0)") "Cannot find TRAJECTORY file from trajectory ", i
         return
     end if
     open(unit=ou, file=fcv)
-    write(ou, '(i0,2f11.7)') t(1), 0.0, h(1)
+    if (h(1) == 1d0) then
+        write(ou, '(a)') '#forward'
+    else
+        write(ou, '(a)') '#backward'
+    end if
+    write(ou, '(f7.3,2f11.7)') t(1), cv0 * au2a, h(1)
 
     do i = 2, nstep
         do k = 1, nb
             do j = 1, natom
                 read(tu, *, iostat=ioerr) tmp, pr(j, :, k)
-                if (ioerr /= 0) then
+                if (ioerr /= 0) then 
                     flag = 1
+                    write(*, "(a,i0)") "Error in reading TRAJECTORY file from&
+                    & trajectory ", idx
                     close(tu)
                     close(ou, status='delete')
                     return
                 end if
             end do
         end do
-        r = sum(pr(ind, :, :), 3)
+        r = sum(pr(ind, :, :), 3) * invnb
         call getr1r2(r, r1, r2)
         call colvar(r1, r2, f)
-        if (f >= 0) h(i) = 1d0
-        write(ou,'(i0,2f11.7)') t(i), f * au2a, h(i)
+        if (f >= cv0) then
+            h(i) = 1d0
+        else
+            h(i) = 0d0
+        end if
+        if (h(i-1) - h(i) /= 0) write(ou, '(a)') '#recrossing over here'
+        write(ou,'(f7.3,2f11.7)') t(i), f * au2a, h(i)
     end do
     close(tu)
     close(ou)

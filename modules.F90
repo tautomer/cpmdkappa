@@ -3,7 +3,7 @@ module global
     integer :: ntraj, nstep, ist, ied, nb, natom, ind(3), tmax
     real*8, parameter :: au2a = 1 / 1.889725989 ! from au to angstrom
     real*8, parameter :: au2fs = 2.418884254d-2 ! from au to fs
-    real*8 :: dt
+    real*8 :: cv0, dt, invnb
     real*8, allocatable :: t(:)
     character(len=200) :: rootdir, date*30, inpnm*10
     logical :: tdiff, tproj, tdist 
@@ -17,9 +17,9 @@ module global
         character(len=50) :: msg
     
         if (present(msgp2)) then
-            write(msg, '(3a)') msgp1, msgp2, '.'
+            write(msg, '(3a)') trim(msgp1), trim(msgp2), '.'
         else
-            write(msg, '(2a)') msgp1, '.'
+            write(msg, '(2a)') trim(msgp1), '.'
         end if
         ! for some unknown reasons, ifort does not stop + arg
 #if defined(__INTEL_COMPILER)
@@ -42,8 +42,8 @@ module cv
         real*8, intent(in) :: r(3, 3)
         real*8, intent(out) :: xy(3), xz(3)
 
-        xy = r(1, :) - r(2, :)
-        xz = r(1, :) - r(3, :)
+        xy = r(2, :) - r(1, :)
+        xz = r(3, :) - r(1, :)
         
         return
     end subroutine 
@@ -54,8 +54,8 @@ module cv
         real*8, intent(in) :: r(3, 3)
         real*8, intent(out) :: xy(3), yz(3)
 
-        xy = r(1, :) - r(2, :)
-        yz = r(2, :) - r(3, :)
+        xy = r(2, :) - r(1, :)
+        yz = r(3, :) - r(2, :)
         
         return
     end subroutine 

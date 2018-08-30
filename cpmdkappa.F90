@@ -24,14 +24,16 @@ subroutine write_output(kappa)
     write(25, "(a,i0)") "# number of trajectories: ", ntraj
     write(25, "(2a)") "# program started on ", date
 #if defined(_OPENMP)
-    write(10, "(a,i8)") &
+    write(25, "(a,i8)") &
         "# the number of threads available: ", tmax
 #else
-    write(10, "(a)" ) "# OMP disabled"
+    write(25, "(a)" ) "# OMP disabled"
 #endif
     do i = 1, nstep
         write(25, '(f7.3,f11.7)') t(i), kappa(i)
     end do
+    call fdate(date)
+    write(25, "(2a)") "# program ended on ", date
     close(25)
 
 end subroutine
