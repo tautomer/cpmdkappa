@@ -54,6 +54,7 @@ subroutine def_val()
     tproj = .false.
     ist = 0
     ied = 0
+    grp = 1
 end subroutine
 
 subroutine read_buffer(label, buffer, line)
@@ -102,6 +103,9 @@ subroutine read_buffer(label, buffer, line)
         else if (ioerr < 0) then
             call stopgm("CPMD input filename to be read not provided.")
         end if
+    case ("group")
+        read(buffer, *, iostat=ioerr) grp
+        if (ioerr > 0) call stopgm("Number of groups should be an integer.")
     case default
         write(*, "(a, i0)") "Skipping invalid label at line ", line
     end select
@@ -173,5 +177,6 @@ subroutine read_cpmd_inp()
 #if defined(_OPENMP)
     !$omp end parallel do
 #endif
+    ! TODO: shuffling all folders and split into groups
     call chdir(rootdir)
 end subroutine
