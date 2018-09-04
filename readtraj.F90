@@ -26,7 +26,7 @@ subroutine proc_traj(kappa)
     end interface
 
     real*8, intent(out) :: kappa(nstep)
-    integer :: i, j, tid, flag
+    integer :: i, j, tid, flag, summ(2, 2)
     real*8 :: v0, vsum, vsum_old, h(nstep)
     procedure(sub_vec), pointer :: getr1r2 => null()
     procedure(sub_deriv), pointer :: derivative => null()
@@ -52,10 +52,11 @@ subroutine proc_traj(kappa)
     vsum_old = 0
     kappa = 0
     j = 0
+    summ = 0
 #if defined(_OPENMP)
     !$omp parallel do &
     !$omp private(i, tid, flag, v0, h) &
-    !$omp shared(vsum, vsum_old, kappa)
+    !$omp shared(vsum, vsum_old, summ, kappa)
 #endif
     do i = ist, ied
 #if defined(_OPENMP)
@@ -67,17 +68,30 @@ subroutine proc_traj(kappa)
         if (flag /= 0) then
             cycle
         end if
-        if(v0 >= 0) then
+        if (v0 >= 0) then
             h(1) = 1d0
             vsum = vsum + v0
         else
             h(1) = 0d0
         end if
         vsum_old = vsum
-        call read_traj(i, h, flag, tid, getr1r2, colvar)
-        if (flag /= 0) then
+        call read_traj(i, v0, h, flag, tid, getr1r2, colvar)
+        if (flag > 0) then
             vsum = vsum_old
             cycle
+        end if
+        if (v0 >= 0) then
+            if (flag == 0) then
+                summ(1, 1) = summ(1, 1) + 1
+            else
+                summ(1, 2) = summ(1, 2) + 1
+            end if
+        else 
+            if (flag == 0) then
+                summ(2, 1) = summ(2, 1) + 1
+            else
+                summ(2, 2) = summ(2, 2) + 1
+            end if
         end if
         kappa = kappa + v0 * h      
         j = j + 1
@@ -88,6 +102,10 @@ subroutine proc_traj(kappa)
 #endif
     kappa = kappa / vsum
     write(*, "(i0,a,i0,a)") j, " out of ", ntraj, " trajectores processed"
+    write(*, "(a,i0)") "number of forward trajectores without recrossing: ", summ(1, 1)
+    write(*, "(a,i0)") "number of forward trajectores with recrossing: ", summ(1, 2)
+    write(*, "(a,i0)") "number of backward trajectores without recrossing: ", summ(2, 1)
+    write(*, "(a,i0)") "number of backward trajectores with recrossing: ", summ(2, 2)
     ntraj = j
 
     return
@@ -163,7 +181,7 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
     return
 end subroutine
 
-subroutine read_traj(idx, h, flag, tid, getr1r2, colvar)
+subroutine read_traj(idx, v0, h, flag, tid, getr1r2, colvar)
     use global
     use cv 
     use deriv
@@ -171,6 +189,7 @@ subroutine read_traj(idx, h, flag, tid, getr1r2, colvar)
 
     integer, intent(in) :: idx, tid
     integer, intent(out) :: flag
+    real*8, intent(in) :: v0
     real*8, intent(inout) :: h(nstep)
     external :: getr1r2, colvar
     integer :: i, j, k, tmp, tu, ou, ioerr
@@ -200,7 +219,7 @@ subroutine read_traj(idx, h, flag, tid, getr1r2, colvar)
     else
         write(ou, '(a)') '#backward'
     end if
-    write(ou, '(f7.3,2f11.7)') t(1), cv0 * au2a, h(1)
+    write(ou, '(f7.3,2f11.7)') t(1), cv0 * au2a, v0 * h(1)
 
     do i = 2, nstep
         do k = 1, nb
@@ -224,8 +243,11 @@ subroutine read_traj(idx, h, flag, tid, getr1r2, colvar)
         else
             h(i) = 0d0
         end if
-        if (h(i-1) - h(i) /= 0) write(ou, '(a)') '#recrossing over here'
-        write(ou,'(f7.3,2f11.7)') t(i), f * au2a, h(i)
+        if (h(i-1) - h(i) /= 0) then
+            write(ou, '(a)') '#recrossing over here'
+            flag = -1
+        end if
+        write(ou,'(f7.3,2f11.7)') t(i), f * au2a, v0 * h(i)
     end do
     close(tu)
     close(ou)
