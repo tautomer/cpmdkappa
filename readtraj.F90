@@ -102,10 +102,14 @@ subroutine proc_traj(kappa)
 #endif
     kappa = kappa / vsum
     write(*, "(i0,a,i0,a)") j, " out of ", ntraj, " trajectores processed"
-    write(*, "(a,i0)") "number of forward trajectores without recrossing: ", summ(1, 1)
-    write(*, "(a,i0)") "number of forward trajectores with recrossing: ", summ(1, 2)
-    write(*, "(a,i0)") "number of backward trajectores without recrossing: ", summ(2, 1)
-    write(*, "(a,i0)") "number of backward trajectores with recrossing: ", summ(2, 2)
+    write(*, "(a,i0)") "number of forward trajectores without recrossing:  ", \
+                       summ(1, 1)
+    write(*, "(a,i0)") "number of forward trajectores with recrossing:     ", \
+                       summ(1, 2)
+    write(*, "(a,i0)") "number of backward trajectores without recrossing: ", \
+                       summ(2, 1)
+    write(*, "(a,i0)") "number of backward trajectores with recrossing:    ", \
+                       summ(2, 2)
     ntraj = j
 
     return
@@ -123,10 +127,10 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
     integer, intent(in) :: idx, tid
     integer, intent(out) :: flag
     real*8, intent(out) :: v0
-    external :: getr1r2, derivative
+    external :: getr1r2, derivative, colvar
     integer :: i, j, pu, vu, ioerr, ioerr2
     real*8 :: pr(3, 3, nb), pv(3, 3, nb), r(3, 3), v(3, 3)
-    real*8 :: r1(3), r2(3), dr(3, 3)
+    real*8 :: r1(3), r2(3), dr(3, 3), f
     character(len=*), parameter :: cvp = "/cv_pos", cvv = "/cv_vel" 
     character(len=25) :: cvpos, cvvel
 
@@ -149,8 +153,8 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
         flag = 1
         return
     end if
-    do i = 1, 3
-        do j = 1, nb
+    do j = 1, nb
+        do i = 1, 3
             read(pu, *, iostat=ioerr) pr(i, :, j)
             read(vu, *, iostat=ioerr2) pv(i, :, j)
             if (ioerr /= 0 .or. ioerr2 /= 0) then

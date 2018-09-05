@@ -133,15 +133,12 @@ module deriv
 
         real*8, intent(in) :: xy(3), xz(3)
         real*8, intent(out) :: dr(3, 3)
-        real*8 :: dxyxz, lxz, dh, d, invr, invr2, t1, t2
+        real*8 :: dxyxz, lxz, invr, invr2, t1, t2
     
         
         lxz = norm2(xz)
         invr = 1 / lxz
         dxyxz = dot_product(xy, xz)
-        dh = dxyxz * invr
-        d = 2 * dh - lxz
-        !h = x + d / dxz * xz
         invr2 = invr * invr
         invr = invr * 2
         t1 = dxyxz * invr2 - 0.5
@@ -164,14 +161,12 @@ module deriv
 
         real*8, intent(in) :: xy(3), xz(3)
         real*8, intent(out) :: dr(3, 3)
-        real*8 :: dxyxz, lxz, dh, invr, invr3
+        real*8 :: dxyxz, lxz, invr, invr3
     
         lxz = norm2(xz)
         invr = 1 / lxz
         invr3 = invr ** 3
         dxyxz = dot_product(xy, xz)
-        dh = dxyxz * invr
-        !h = x + d / dxz * xz
         dr(1, 1) = -(xy(1) + xz(1)) * invr + dxyxz * xz(1) * invr3
         dr(1, 2) = -(xy(2) + xz(2)) * invr + dxyxz * xz(2) * invr3
         dr(1, 3) = -(xy(3) + xz(3)) * invr + dxyxz * xz(3) * invr3
