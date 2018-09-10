@@ -55,8 +55,8 @@ subroutine proc_traj(kappa)
     summ = 0
 #if defined(_OPENMP)
     !$omp parallel do &
-    !$omp private(i, tid, flag, v0, h) &
-    !$omp shared(vsum, vsum_old, summ, kappa)
+    !$omp private(i, tid, flag, v0, h, vsum_old) &
+    !$omp reduction(+: kappa, vsum, summ)
 #endif
     do i = ist, ied
 #if defined(_OPENMP)
@@ -64,6 +64,7 @@ subroutine proc_traj(kappa)
 #else
         tid = 1
 #endif
+        vsum_old = vsum
         call read_init(i, v0, flag, tid, getr1r2, derivative)
         if (flag /= 0) then
             cycle
@@ -74,7 +75,6 @@ subroutine proc_traj(kappa)
         else
             h(1) = 0d0
         end if
-        vsum_old = vsum
         call read_traj(i, v0, h, flag, tid, getr1r2, colvar)
         if (flag > 0) then
             vsum = vsum_old
@@ -153,6 +153,7 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
         flag = 1
         return
     end if
+
     do j = 1, nb
         do i = 1, 3
             read(pu, *, iostat=ioerr) pr(i, :, j)
@@ -174,8 +175,8 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
     v = sum(pv, 3) * invnb
     call getr1r2(r, r1, r2)
     call derivative(r1, r2, dr)
+
     v0 = 0
-    
     do i = 1, 3
         do j = 1, 3
             v0 = v0 + dr(i, j) * v(i, j)
