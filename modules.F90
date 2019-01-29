@@ -114,7 +114,7 @@ module deriv
         real*8 :: lxy, lyz
 
         lxy = norm2(xy)
-        lxy = norm2(yz)
+        lyz = norm2(yz)
         dr(1, 1) = -xy(1) / lxy
         dr(1, 2) = -xy(2) / lxy
         dr(1, 3) = -xy(3) / lxy

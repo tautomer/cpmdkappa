@@ -69,7 +69,7 @@ subroutine proc_traj(kappa)
         if (flag /= 0) then
             cycle
         end if
-        if (v0 >= 0) then
+        if (v0 <= 0) then
             h(1) = 1d0
             vsum = vsum + v0
         else
@@ -80,7 +80,7 @@ subroutine proc_traj(kappa)
             vsum = vsum_old
             cycle
         end if
-        if (v0 >= 0) then
+        if (v0 <= 0) then
             if (flag == 0) then
                 summ(1, 1) = summ(1, 1) + 1
             else
@@ -243,7 +243,7 @@ subroutine read_traj(idx, v0, h, flag, tid, getr1r2, colvar)
         r = sum(pr(ind, :, :), 3) * invnb
         call getr1r2(r, r1, r2)
         call colvar(r1, r2, f)
-        if (f >= cv0) then
+        if (f <= cv0) then
             h(i) = 1d0
         else
             h(i) = 0d0
