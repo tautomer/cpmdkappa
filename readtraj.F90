@@ -25,9 +25,9 @@ subroutine proc_traj(kappa)
         end subroutine
     end interface
 
-    real*8, intent(out) :: kappa(nstep)
-    integer :: i, j, tid, flag, summ(2, 2)
-    real*8 :: v0, vsum, vsum_old, h(nstep)
+    real*8, intent(out) :: kappa(ng,nstep)
+    integer :: i, j, k, n, tid, flag, summ(2, 2), nt(ng)
+    real*8 :: v0, vsum(ng), vsum_old, h(nstep)
     procedure(sub_vec), pointer :: getr1r2 => null()
     procedure(sub_deriv), pointer :: derivative => null()
     procedure(sub_cv), pointer :: colvar => null()
@@ -48,60 +48,76 @@ subroutine proc_traj(kappa)
         colvar => diff
     end if
 
+    n = ied - ist + 1
+    if (ng > 1) then
+        nt = n / ng
+        k = mod(n, ng)
+        do i = 1, k
+            nt(i) = nt(i) + 1
+        end do
+    else
+        nt = n
+    end if
     vsum = 0
     vsum_old = 0
     kappa = 0
-    j = 0
+    k = 0
     summ = 0
+
 #if defined(_OPENMP)
-    !$omp parallel do &
+    !$omp parallel do collapse(2) &
     !$omp private(i, tid, flag, v0, h, vsum_old) &
-    !$omp reduction(+: kappa, vsum, summ)
+    !$omp reduction(+: kappa, vsum, summ, k)
 #endif
-    do i = ist, ied
+    do i = 1, ng
+        do j = 1, nt(i)
 #if defined(_OPENMP)
-        tid = omp_get_thread_num()
+            tid = omp_get_thread_num()
 #else
-        tid = 1
+            tid = 1
 #endif
-        vsum_old = vsum
-        call read_init(i, v0, flag, tid, getr1r2, derivative)
-        if (flag /= 0) then
-            cycle
-        end if
-        if (v0 <= 0) then
-            h(1) = 1d0
-            vsum = vsum + v0
-        else
-            h(1) = 0d0
-        end if
-        call read_traj(i, v0, h, flag, tid, getr1r2, colvar)
-        if (flag > 0) then
-            vsum = vsum_old
-            cycle
-        end if
-        if (v0 <= 0) then
-            if (flag == 0) then
-                summ(1, 1) = summ(1, 1) + 1
-            else
-                summ(1, 2) = summ(1, 2) + 1
+            vsum_old = vsum(i)
+            n = sum(nt(1:i-1)) + j
+            call read_init(n, v0, flag, tid, getr1r2, derivative)
+            if (flag /= 0) then
+                cycle
             end if
-        else 
-            if (flag == 0) then
-                summ(2, 1) = summ(2, 1) + 1
+            if (v0 <= 0) then
+                h(1) = 1d0
+                vsum(i) = vsum(i) + v0
             else
-                summ(2, 2) = summ(2, 2) + 1
+                h(1) = 0d0
             end if
-        end if
-        kappa = kappa + v0 * h      
-        j = j + 1
-        write(*, "(a,i0,a)") "Data from trajectory ", i, " collected"
+            call read_traj(n, v0, h, flag, tid, getr1r2, colvar)
+            if (flag > 0) then
+                vsum(i) = vsum_old
+                cycle
+            end if
+            if (v0 <= 0) then
+                if (flag == 0) then
+                    summ(1, 1) = summ(1, 1) + 1
+                else
+                    summ(1, 2) = summ(1, 2) + 1
+                end if
+            else 
+                if (flag == 0) then
+                    summ(2, 1) = summ(2, 1) + 1
+                else
+                    summ(2, 2) = summ(2, 2) + 1
+                end if
+            end if
+            kappa(i,:) = kappa(i,:) + v0 * h      
+            k = k + 1
+            write(*, "(a,i0,a)") "Data from trajectory ", i, " collected"
+        end do
     end do
 #if defined(_OPENMP)
     !$omp end parallel do
 #endif
-    kappa = kappa / vsum
-    write(*, "(i0,a,i0,a)") j, " out of ", ntraj, " trajectores processed"
+    do i = 1, ng
+        kappa(i,:) = kappa(i,:) / vsum(i)
+    end do
+    write(*, "(i0,a,i0,a)") k, " out of ", ntraj, " trajectores processed"
     write(*, "(a,i0)") "number of forward trajectores without recrossing:  ", \
                        summ(1, 1)
     write(*, "(a,i0)") "number of forward trajectores with recrossing:     ", \
@@ -110,7 +126,7 @@ subroutine proc_traj(kappa)
                        summ(2, 1)
     write(*, "(a,i0)") "number of backward trajectores with recrossing:    ", \
                        summ(2, 2)
-    ntraj = j
+    ntraj = k
 
     return
 end subroutine

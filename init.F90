@@ -102,6 +102,13 @@ subroutine read_buffer(label, buffer, line)
         else if (ioerr < 0) then
             call stopgm("CPMD input filename to be read not provided.")
         end if
+    case ("group")
+        read(buffer, *, iostat=ioerr) ng
+        if (ioerr > 0) then
+            call stopgm("Number of groups should be an integer.")
+        else if (ioerr < 0) then
+            call stopgm("Number of groups not sepcified.")
+        end if
     case default
         write(*, "(a, i0)") "Skipping invalid label at line ", line
     end select

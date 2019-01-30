@@ -16,8 +16,10 @@ subroutine write_output(kappa)
     use global
     implicit none
 
-    real*8, intent(in) :: kappa(nstep)
-    integer :: i
+    real*8, intent(in) :: kappa(ng,nstep)
+    integer :: i, j
+    real*8 :: avg(nstep), stddev(nstep), stepsum, stepmean
+    character(len=15) :: outfmt
 
     open(unit=25, file="kappa.dat")
     write(25, "(a,i0)") "# number of beads: ", nb
@@ -29,8 +31,21 @@ subroutine write_output(kappa)
 #else
     write(25, "(a)" ) "# OMP disabled"
 #endif
+
+    avg = kappa(1, :)
+    stddev = 0
+    do i = 2, ng
+        do j = 1, nstep
+            stepsum = kappa(i, j) - avg(j)
+            stepmean = stepsum / ng
+            avg(j) = avg(j) + stepmean
+            stddev(j) = stddev(j) + stepmean * stepsum * (i - 1)
+        end do
+    end do
+    stddev = sqrt(stddev) / ng 
+    write(outfmt, '(a,i0,a)') '(f7.3,', ng+2, 'f11.7)'
     do i = 1, nstep
-        write(25, '(f7.3,f11.7)') t(i), kappa(i)
+        write(25, outfmt) t(i), avg(i), stddev(i), kappa(:,i)
     end do
     call fdate(date)
     write(25, "(2a)") "# program ended on ", date

@@ -1,6 +1,6 @@
 module global
     implicit none
-    integer :: ntraj, nstep, ist, ied, nb, natom, ind(3), tmax
+    integer :: ntraj, nstep, ist, ied, nb, natom, ind(3), tmax, ng = 1
     real*8, parameter :: au2a = 1 / 1.889725989 ! from au to angstrom
     real*8, parameter :: au2fs = 2.418884254d-2 ! from au to fs
     real*8 :: cv0, dt, invnb
