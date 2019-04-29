@@ -26,7 +26,8 @@ subroutine proc_traj(kappa)
     end interface
 
     real*8, intent(out) :: kappa(ng,nstep)
-    integer :: i, j, k, n, tid, flag, summ(2, 2), nt(ng)
+    integer :: i, j, k, n, tid, flag, summ(2, 2), nt, tmp
+    integer, allocatable :: idx(:)
     real*8 :: v0, vsum(ng), vsum_old, h(nstep)
     procedure(sub_vec), pointer :: getr1r2 => null()
     procedure(sub_deriv), pointer :: derivative => null()
@@ -49,36 +50,38 @@ subroutine proc_traj(kappa)
     end if
 
     n = ied - ist + 1
+    allocate(idx(n))
     if (ng > 1) then
         nt = n / ng
-        k = mod(n, ng)
-        do i = 1, k
-            nt(i) = nt(i) + 1
-        end do
     else
         nt = n
     end if
+    write(*,*) t(1:3)
+    call shuffle(idx, n)
     vsum = 0
     vsum_old = 0
-    kappa = 0
+    !kappa = 0
     k = 0
     summ = 0
 
 #if defined(_OPENMP)
     !$omp parallel do collapse(2) &
-    !$omp private(i, tid, flag, v0, h, vsum_old) &
+    !$omp private(i, tid, flag, v0, h, vsum_old, n) &
+    !$omp shared(t) &
     !$omp reduction(+: kappa, vsum, summ, k)
 #endif
     do i = 1, ng
-        do j = 1, nt(i)
+        do j = 1, nt
 #if defined(_OPENMP)
             tid = omp_get_thread_num()
 #else
             tid = 1
 #endif
             vsum_old = vsum(i)
-            n = sum(nt(1:i-1)) + j
-            call read_init(n, v0, flag, tid, getr1r2, derivative)
+            tmp = idx(nt*(i-1)+j)
+            write(1212,*) tmp
+            call read_init(tmp, v0, flag, tid, getr1r2, derivative)
+            !write(*, *) j, tid, v0
             if (flag /= 0) then
                 cycle
             end if
@@ -88,7 +91,7 @@ subroutine proc_traj(kappa)
             else
                 h(1) = 0d0
             end if
-            call read_traj(n, v0, h, flag, tid, getr1r2, colvar)
+            call read_traj(tmp, v0, h, flag, tid, getr1r2, colvar)
             if (flag > 0) then
                 vsum(i) = vsum_old
                 cycle
@@ -108,7 +111,7 @@ subroutine proc_traj(kappa)
             end if
             kappa(i,:) = kappa(i,:) + v0 * h      
             k = k + 1
-            write(*, "(a,i0,a)") "Data from trajectory ", i, " collected"
+            write(*, "(a,i0,a)") "Data from trajectory ", tmp, " collected"
         end do
     end do
 #if defined(_OPENMP)
@@ -198,7 +201,7 @@ subroutine read_init(idx, v0, flag, tid, getr1r2, derivative)
             v0 = v0 + dr(i, j) * v(i, j)
         end do
     end do
-    
+    !write(*, *) idx, 'dasdas', v0 
     return
 end subroutine
 

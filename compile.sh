@@ -23,6 +23,8 @@ then
 elif [[ $2 -eq 3 ]]
 then
     FLAGS="$FLAGS $flag1 $flag2"
+else
+    FLAGS="$FLAGS"
 fi
 make FC="$FC" FLAGS="$FLAGS"
 rm -f *.o *genmod*

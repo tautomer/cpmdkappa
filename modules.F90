@@ -29,6 +29,28 @@ module global
         stop msg
 #endif
     end subroutine
+
+    subroutine shuffle(a, n)
+        implicit none
+
+        integer, intent(in) :: n
+        integer, intent(out) :: a(n)
+        integer :: i, randpos, tmp
+        real(kind=8) :: r
+
+        do i = 1, n
+            a(i) = i
+        end do
+        do i = n, 2, -1
+            call random_number(r)
+            randpos = int(r * i) + 1
+            tmp = a(randpos)
+            a(randpos) = a(i)
+            a(i) = tmp
+        end do
+
+        end subroutine shuffle
+
 end module global
 
 module cv

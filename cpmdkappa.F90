@@ -45,7 +45,7 @@ subroutine write_output(kappa)
     stddev = sqrt(stddev) / ng 
     write(outfmt, '(a,i0,a)') '(f7.3,', ng+2, 'f11.7)'
     do i = 1, nstep
-        write(25, outfmt) t(i), avg(i), stddev(i), kappa(:,i)
+        write(25, outfmt) dt*(i-1), avg(i), stddev(i), kappa(:,i)
     end do
     call fdate(date)
     write(25, "(2a)") "# program ended on ", date
